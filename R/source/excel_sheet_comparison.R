@@ -773,17 +773,17 @@ compare_xl_sheets_validator <- function(
     # Check all columns in config exist in the sheets to compare
     # Base sheets
     for(sheet in sheets_to_compare$base_sheet_name) {
-        base_sheet <- names(as.data.table(
-            openxlsx::read.xlsx(wb, sheet = base_sheet_name)))
-        if (!all(column_config$base_cols_to_compare %in% base_sheet)) {
+        base_sheet <- as.data.table(
+            openxlsx::read.xlsx(wb, sheet = sheet))
+        if (!all(column_config$base_cols_to_compare %in% names(base_sheet))) {
             message("The base columns to compare do not exist in the base sheet")
             result <- FALSE
         }
     }
     # Updated sheets
     for(sheet in sheets_to_compare$updated_sheet_name) {
-        updated_sheet <- names(as.data.table(
-            openxlsx::read.xlsx(wb, sheet = updated_sheet_name)))
+        updated_sheet <- as.data.table(
+            openxlsx::read.xlsx(wb, sheet = sheet))
         if (!all(column_config$updated_cols_to_compare %in% updated_sheet)) {
             message("The updated columns to compare do not exist in the updated sheet")
             result <- FALSE
@@ -800,7 +800,7 @@ compare_xl_sheets_validator <- function(
 
     # Check if the column config has the correct rounding
     for(val in column_config$rounding) {
-        if (!(is.numeric(val) | val != 'None')) {
+        if (!(is.numeric(val) | is.na(val))) {
             message("The column config does not have the correct rounding")
             message("The column config should only have numeric or 'None'",
             " values")            
@@ -904,3 +904,111 @@ order_sheets <- function(
 }
 
 
+run_standardised_xlsx_sheet_comparison <- function(
+    result_xlsx_path,
+    base_sheet_names,
+    updated_sheet_names
+) {
+    # Check the result_xlsx_path exists
+    if(!file_exists(result_xlsx_path)){
+        message("The result_xlsx_path does not exist")
+        return()
+    }
+
+    # Check the base_sheet_names and updated_sheet_names are the same length
+    if(!length(base_sheet_names) == length(updated_sheet_names)){
+        message("The base_sheet_names and updated_sheet_names are not the ",
+        "same length")
+        return()
+    }
+
+    # Check the base_sheet_names and updated_sheet_names are unique
+    if(!length(unique(c(base_sheet_names, updated_sheet_names))) ==
+    (length(base_sheet_names)*2)){
+        message("The base_sheet_names and updated_sheet_names are not unique")
+        return()
+    }
+
+    # Check the base_sheet_names and updated_sheet_names are in the xlsx
+    wb <- openxlsx::loadWorkbook(result_xlsx_path)
+    if(!xlsx_validation(
+    wb = wb,
+    expected_sheet_names = c(base_sheet_names, updated_sheet_names))){
+        return(FALSE)}
+    
+    # Check the base_sheet_names and updated_sheet_names have the same columns
+    for(sheet in 1:length(base_sheet_names)){
+        base_sheet <- as.data.table(
+            openxlsx::read.xlsx(wb, sheet = base_sheet_names[sheet]))
+        updated_sheet <- as.data.table(
+            openxlsx::read.xlsx(wb, sheet = updated_sheet_names[sheet]))
+        if(!all(names(base_sheet) == names(updated_sheet))){
+            message(paste0("The base_sheet_names and updated_sheet_names do ",
+            "not have the same columns for sheet: ", sheet))
+            return()
+        }
+    }
+
+    # Check the sheets have a unique key in first column
+    for(sheet in 1:length(base_sheet_names)){
+        base_sheet <- as.data.table(
+            openxlsx::read.xlsx(wb, sheet = base_sheet_names[sheet]))
+        updated_sheet <- as.data.table(
+            openxlsx::read.xlsx(wb, sheet = updated_sheet_names[sheet]))
+        if(!length(unique(base_sheet[[1]])) == nrow(base_sheet)){
+            message(paste0("The base_sheet_names does not have a unique key ",
+            "in the first column for sheet: ", sheet))
+            return()
+        }
+        if(!length(unique(updated_sheet[[1]])) == nrow(updated_sheet)){
+            message(paste0("The updated_sheet_names does not have a unique ",
+            "key in the first column for sheet: ", sheet))
+            return()
+        }
+    }
+
+    sheets_to_compare_data <- data.frame(
+      base_sheet_name = base_sheet_names,
+      updated_sheet_name = updated_sheet_names,
+      result_sheet_name = as.character(gsub("[^0-9]", "", base_sheet_names))
+    )
+
+    column_config <- data.table(
+        base_cols_to_compare = c(names(base_sheet)),
+        updated_cols_to_compare = c(names(updated_sheet)),
+        data_type = rep('numeric', length(names(base_sheet))),
+        rounding = rep(NA, length(names(base_sheet))),
+        key_column = c(TRUE, rep(FALSE, length(names(base_sheet))-1))
+    )
+    
+    # Generate comparison sheets
+    compare_xl_sheets(
+        path_results_xlsx = result_xlsx_path,
+        sheets_to_compare = sheets_to_compare_data,
+        verticle = TRUE,
+        column_config = column_config,
+        result_summary_sheet_name = 'Comparison Summary'
+    )
+}
+
+
+
+
+# path_to_excel <- "path/to/your/excel.xlsx"
+# sheets_to_compare_data <- data.frame(
+#   base_sheet_name = c("Sheet1", "Sheet2"),
+#   updated_sheet_name = c("Sheet1_updated", "Sheet2_updated"),
+#   result_sheet_name = c("Comparison1", "Comparison2")
+# )
+# column_config <- list(
+#   list("Column1", "Type1"),
+#   list("Column2", "Type2")
+# )
+# result_summary_name <- "SummarySheet"
+# compare_xl_sheets(
+#   path_results_xlsx = path_to_excel,
+#   sheets_to_compare = sheets_to_compare_data,
+#   verticle = TRUE,
+#   column_config = column_config,
+#   result_summary_sheet_name = result_summary_name
+# )
