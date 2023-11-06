@@ -773,25 +773,25 @@ compare_xl_sheets_validator <- function(
     # Check all columns in config exist in the sheets to compare
     # Base sheets
     for(sheet in sheets_to_compare$base_sheet_name) {
-        base_sheet <- as.data.table(
-            openxlsx::read.xlsx(wb, sheet = sheet))
-        if (!all(column_config$base_cols_to_compare %in% names(base_sheet))) {
+        base_sheets <- names(as.data.table(
+            openxlsx::read.xlsx(wb, sheet = sheet)))
+        if (!all(column_config$base_cols_to_compare %in% base_sheets)) {
             message("The base columns to compare do not exist in the base sheet")
             result <- FALSE
         }
     }
     # Updated sheets
     for(sheet in sheets_to_compare$updated_sheet_name) {
-        updated_sheet <- as.data.table(
-            openxlsx::read.xlsx(wb, sheet = sheet))
-        if (!all(column_config$updated_cols_to_compare %in% updated_sheet)) {
+        updated_sheets <- names(as.data.table(
+            openxlsx::read.xlsx(wb, sheet = sheet)))
+        if (!all(column_config$updated_cols_to_compare %in% updated_sheets)) {
             message("The updated columns to compare do not exist in the updated sheet")
             result <- FALSE
         }
     }
 
     # Check if the column config has the correct data types
-    if (!all(c('character', 'numeric') %in% column_config$data_type)) {
+    if (!all(column_config$data_type %in% c('character', 'numeric'))) {
         message("The column config does not have the correct data types")
         message("The column config should have the following data types:")
         message("character, numeric")
@@ -967,7 +967,7 @@ run_standardised_xlsx_sheet_comparison <- function(
         }
     }
 
-    sheets_to_compare_data <- data.frame(
+    sheets_to_compare_data <- data.table(
       base_sheet_name = base_sheet_names,
       updated_sheet_name = updated_sheet_names,
       result_sheet_name = as.character(gsub("[^0-9]", "", base_sheet_names))
