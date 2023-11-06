@@ -887,7 +887,7 @@ order_sheets <- function(
 ) {
 
     wb <- loadWorkbook(path_results_xlsx)
-    sheet = names(wb)
+    sheets = names(wb)
 
     # Determine the sheets that are not in the specified order
     other_sheets <- setdiff(sheets, sheets_at_start)
